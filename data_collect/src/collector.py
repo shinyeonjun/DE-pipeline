@@ -16,6 +16,7 @@ class Collector:
     retry_backoff_seconds: int
     gcs_bucket: str | None
     gcs_prefix: str
+    timeout_seconds: int
 
     def collect_once(self, debug: bool = False) -> str:
         url = build_url(
@@ -33,6 +34,7 @@ class Collector:
 
         xml_bytes = fetch_xml(
             url,
+            timeout_seconds=self.timeout_seconds,
             retry_count=self.retry_count,
             backoff_seconds=self.retry_backoff_seconds,
         )

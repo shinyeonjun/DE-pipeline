@@ -56,6 +56,7 @@ def main() -> int:
         retry_backoff_seconds=config.retry_backoff_seconds,
         gcs_bucket=config.gcs_bucket,
         gcs_prefix=config.gcs_prefix,
+        timeout_seconds=config.timeout_seconds,
     )
 
     try:

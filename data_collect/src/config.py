@@ -11,6 +11,7 @@ DATA_INTERVAL_MINUTES = 5
 DEFAULT_RETRY_COUNT = 2
 DEFAULT_RETRY_BACKOFF_SECONDS = 2
 DEFAULT_GCS_PREFIX = "raw/kpx"
+DEFAULT_TIMEOUT_SECONDS = 60
 
 
 def load_dotenv(path: str) -> dict:
@@ -63,6 +64,7 @@ class AppConfig:
     retry_backoff_seconds: int
     gcs_bucket: str | None
     gcs_prefix: str
+    timeout_seconds: int
 
     @classmethod
     def from_env(cls) -> "AppConfig":
@@ -74,6 +76,7 @@ class AppConfig:
         api_key_encoded_raw = os.environ.get("API_KEY_ENCODED") or dotenv.get("API_KEY_ENCODED")
         gcs_bucket = os.environ.get("GCS_BUCKET") or dotenv.get("GCS_BUCKET")
         gcs_prefix = os.environ.get("GCS_PREFIX") or dotenv.get("GCS_PREFIX") or DEFAULT_GCS_PREFIX
+        timeout_seconds_raw = os.environ.get("TIMEOUT_SECONDS") or dotenv.get("TIMEOUT_SECONDS")
         if not api_key:
             raise ValueError("API_KEY is missing. Set it in .env or environment variables.")
         if not api_url:
@@ -89,4 +92,5 @@ class AppConfig:
             retry_backoff_seconds=DEFAULT_RETRY_BACKOFF_SECONDS,
             gcs_bucket=gcs_bucket,
             gcs_prefix=gcs_prefix,
+            timeout_seconds=int(timeout_seconds_raw) if timeout_seconds_raw else DEFAULT_TIMEOUT_SECONDS,
         )
