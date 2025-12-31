@@ -20,5 +20,5 @@ options:
 
 substitutions:
   _REGION: asia-northeast3
-  _REPO: kpx-collector
+  _REPO: kpx-collector-job
   _IMAGE: kpx-collector
