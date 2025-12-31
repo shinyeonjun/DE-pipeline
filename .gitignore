@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.env
+venv/
+data_collect/data/
+data/
+*.log

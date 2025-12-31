@@ -1,0 +1,9 @@
+services:
+  kpx-collector:
+    build: .
+    container_name: kpx-collector
+    env_file:
+      - .env
+    volumes:
+      - ./data_collect/data:/app/data_collect/data
+    restart: unless-stopped

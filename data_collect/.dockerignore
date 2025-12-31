@@ -1,0 +1,9 @@
+data
+data_collect/data
+venv
+.env
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
