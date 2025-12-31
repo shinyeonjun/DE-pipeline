@@ -5,8 +5,8 @@ steps:
       - -t
       - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:latest
       - -f
-      - Dockerfile
-      - .
+      - data_collect/Dockerfile
+      - data_collect
   - name: gcr.io/cloud-builders/docker
     args:
       - push
