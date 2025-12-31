@@ -1,25 +1,31 @@
 import argparse
-import time
+import logging
+import os
 
 from config import (
     AppConfig,
     DEFAULT_DATA_DIR,
-    DEFAULT_INTERVAL_MINUTES,
     DEFAULT_KEY_PARAM,
 )
 from collector import Collector
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Collect KPX current power supply XML at a fixed interval."
+    log_dir = os.path.join(DEFAULT_DATA_DIR, "logs")
+    os.makedirs(log_dir, exist_ok=True)
+    log_path = os.path.join(log_dir, "collector.log")
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(message)s",
+        handlers=[
+            logging.FileHandler(log_path, encoding="utf-8"),
+            logging.StreamHandler(),
+        ],
     )
-    parser.add_argument("--once", action="store_true", help="Run a single collection and exit.")
-    parser.add_argument(
-        "--interval-minutes",
-        type=int,
-        default=DEFAULT_INTERVAL_MINUTES,
-        help="Interval in minutes (default: 15).",
+    logger = logging.getLogger("collector")
+
+    parser = argparse.ArgumentParser(
+        description="Collect KPX current power supply XML once per run."
     )
     parser.add_argument(
         "--data-dir",
@@ -36,7 +42,7 @@ def main() -> int:
     try:
         config = AppConfig.from_env()
     except ValueError as exc:
-        print(f"ERROR: {exc}")
+        logger.error("config_error=%s", exc)
         return 1
 
     collector = Collector(
@@ -48,30 +54,17 @@ def main() -> int:
         api_key_encoded=config.api_key_encoded,
         retry_count=config.retry_count,
         retry_backoff_seconds=config.retry_backoff_seconds,
+        gcs_bucket=config.gcs_bucket,
+        gcs_prefix=config.gcs_prefix,
     )
 
-    def run_collection():
+    try:
         path = collector.collect_once(debug=True)
-        print(f"Saved: {path}")
-
-    if args.once:
-        run_collection()
-        return 0
-
-    interval_seconds = max(60, args.interval_minutes * 60)
-    print(
-        f"Starting collection every {args.interval_minutes} minutes. "
-        f"Saving to {args.data_dir}."
-    )
-    while True:
-        start = time.time()
-        try:
-            run_collection()
-        except Exception as exc:
-            print(f"ERROR: {exc}")
-        elapsed = time.time() - start
-        sleep_seconds = max(5, interval_seconds - elapsed)
-        time.sleep(sleep_seconds)
+    except Exception as exc:
+        logger.exception("collect_failed error=%s", exc)
+        return 1
+    logger.info("saved=%s", path)
+    return 0
 
 
 if __name__ == "__main__":

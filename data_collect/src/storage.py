@@ -2,6 +2,8 @@ import os
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
+from gcs_storage import upload_bytes
+
 
 def extract_base_datetimes(xml_bytes: bytes) -> list[str]:
     try:
@@ -24,35 +26,29 @@ def parse_base_datetime(value: str) -> datetime | None:
     return None
 
 
-def load_last_base_datetime(data_dir: str) -> datetime | None:
-    path = os.path.join(data_dir, "raw", "kpx", "last_base_datetime.txt")
-    if not os.path.exists(path):
-        return None
-    with open(path, "r", encoding="utf-8") as f:
-        raw = f.read().strip()
-    if not raw:
-        return None
-    return parse_base_datetime(raw)
-
-
-def save_last_base_datetime(data_dir: str, base_dt_str: str) -> None:
-    path = os.path.join(data_dir, "raw", "kpx", "last_base_datetime.txt")
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(base_dt_str)
-
-
-def save_xml(data_dir: str, xml_bytes: bytes, base_dt: datetime | None) -> str:
+def save_xml(
+    data_dir: str,
+    xml_bytes: bytes,
+    base_dt: datetime | None,
+    gcs_bucket: str | None,
+    gcs_prefix: str,
+) -> str:
     now = base_dt or datetime.now()
     date_part = now.strftime("%Y-%m-%d")
     time_part = now.strftime("%H%M")
+    filename = f"{time_part}.xml"
+
+    if gcs_bucket:
+        prefix = gcs_prefix.strip("/")
+        object_name = f"{prefix}/dt={date_part}/{filename}"
+        upload_bytes(gcs_bucket, object_name, xml_bytes)
+        return f"gs://{gcs_bucket}/{object_name}"
+
     base_dir = os.path.join(data_dir, "raw", "kpx", f"dt={date_part}")
     os.makedirs(base_dir, exist_ok=True)
-    filename = f"{time_part}.xml"
     path = os.path.join(base_dir, filename)
     if os.path.exists(path):
         return path
     with open(path, "wb") as f:
         f.write(xml_bytes)
     return path
-
