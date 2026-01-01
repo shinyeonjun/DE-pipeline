@@ -25,17 +25,17 @@ def main() -> int:
     logger = logging.getLogger("collector")
 
     parser = argparse.ArgumentParser(
-        description="Collect KPX current power supply XML once per run."
+        description="Collect EIA hourly fuel-type data once per run."
     )
     parser.add_argument(
         "--data-dir",
         default=DEFAULT_DATA_DIR,
-        help="Directory to store raw XML (default: data).",
+        help="Directory to store raw JSON (default: data).",
     )
     parser.add_argument(
         "--key-param",
         default=DEFAULT_KEY_PARAM,
-        help="Query param name for the API key (default: serviceKey).",
+        help="Query param name for the API key (default: api_key).",
     )
     args = parser.parse_args()
 

@@ -43,23 +43,6 @@ def try_parse_json(raw_bytes: bytes) -> dict | None:
         return None
 
 
-def split_eia_payload_by_fueltype(payload: dict) -> dict[str, dict]:
-    response = payload.get("response") or {}
-    data = response.get("data") or []
-    grouped: dict[str, list[dict]] = {}
-    for item in data:
-        fueltype = item.get("fueltype") or "unknown"
-        grouped.setdefault(fueltype, []).append(item)
-    result: dict[str, dict] = {}
-    for fueltype, items in grouped.items():
-        new_payload = dict(payload)
-        new_response = dict(response)
-        new_response["data"] = items
-        new_payload["response"] = new_response
-        result[fueltype] = new_payload
-    return result
-
-
 def extract_latest_dt_and_fueltypes(raw_bytes: bytes) -> tuple[datetime | None, list[str], dict[str, dict] | None]:
     payload = try_parse_json(raw_bytes)
     if payload:
@@ -77,8 +60,7 @@ def extract_latest_dt_and_fueltypes(raw_bytes: bytes) -> tuple[datetime | None, 
             if fueltype:
                 fueltypes.append(str(fueltype))
         latest_dt = max(dts) if dts else None
-        grouped = split_eia_payload_by_fueltype(payload)
-        return latest_dt, sorted(set(fueltypes)), grouped
+        return latest_dt, sorted(set(fueltypes)), None
 
     base_values = extract_base_datetimes(raw_bytes)
     base_parsed = [parse_base_datetime(v) for v in base_values]
@@ -93,33 +75,11 @@ def save_raw(
     base_dt: datetime | None,
     gcs_bucket: str | None,
     gcs_prefix: str,
-    fueltype_payloads: dict[str, dict] | None,
 ) -> list[str]:
     now = base_dt or datetime.now()
     date_part = now.strftime("%m-%d")
     time_part = now.strftime("%H")
     paths: list[str] = []
-
-    if fueltype_payloads:
-        for fueltype, payload in fueltype_payloads.items():
-            filename = f"{time_part}.json"
-            prefix = gcs_prefix.strip("/")
-            object_name = f"{prefix}/{fueltype}/{date_part}/{filename}"
-            payload_bytes = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-            if gcs_bucket:
-                upload_bytes(
-                    gcs_bucket, object_name, payload_bytes, content_type="application/json"
-                )
-                paths.append(f"gs://{gcs_bucket}/{object_name}")
-            else:
-                base_dir = os.path.join(data_dir, "raw", "eia", fueltype, date_part)
-                os.makedirs(base_dir, exist_ok=True)
-                path = os.path.join(base_dir, filename)
-                if not os.path.exists(path):
-                    with open(path, "wb") as f:
-                        f.write(payload_bytes)
-                paths.append(path)
-        return paths
 
     filename = f"{time_part}.json"
 

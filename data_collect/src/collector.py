@@ -37,7 +37,7 @@ class Collector:
             retry_count=self.retry_count,
             backoff_seconds=self.retry_backoff_seconds,
         )
-        latest_base_dt, fueltypes, fueltype_payloads = extract_latest_dt_and_fueltypes(
+        latest_base_dt, fueltypes, _ = extract_latest_dt_and_fueltypes(
             xml_bytes
         )
         paths = save_raw(
@@ -46,7 +46,6 @@ class Collector:
             latest_base_dt,
             self.gcs_bucket,
             self.gcs_prefix,
-            fueltype_payloads,
         )
         if len(paths) > 1:
             print(f"Saved {len(paths)} files (fueltypes={','.join(fueltypes)}).")
