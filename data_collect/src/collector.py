@@ -1,7 +1,6 @@
 from dataclasses import dataclass
-from datetime import datetime
 from http_client import build_url, fetch_xml
-from storage import extract_base_datetimes, parse_base_datetime, save_xml
+from storage import extract_latest_dt_and_fueltypes, save_raw
 
 
 @dataclass
@@ -38,15 +37,18 @@ class Collector:
             retry_count=self.retry_count,
             backoff_seconds=self.retry_backoff_seconds,
         )
-        base_dt_values = extract_base_datetimes(xml_bytes)
-        base_dt_pairs = [(v, parse_base_datetime(v)) for v in base_dt_values]
-        base_dt_pairs = [(v, dt) for v, dt in base_dt_pairs if dt is not None]
-        latest_base_dt = max((dt for _, dt in base_dt_pairs), default=None)
-        path = save_xml(
+        latest_base_dt, fueltypes, fueltype_payloads = extract_latest_dt_and_fueltypes(
+            xml_bytes
+        )
+        paths = save_raw(
             self.data_dir,
             xml_bytes,
             latest_base_dt,
             self.gcs_bucket,
             self.gcs_prefix,
+            fueltype_payloads,
         )
+        if len(paths) > 1:
+            print(f"Saved {len(paths)} files (fueltypes={','.join(fueltypes)}).")
+        path = paths[0]
         return path

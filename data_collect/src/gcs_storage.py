@@ -1,4 +1,6 @@
-def upload_bytes(bucket_name: str, object_name: str, data: bytes) -> None:
+def upload_bytes(
+    bucket_name: str, object_name: str, data: bytes, content_type: str = "application/octet-stream"
+) -> None:
     try:
         from google.cloud import storage
     except ImportError as exc:
@@ -10,4 +12,4 @@ def upload_bytes(bucket_name: str, object_name: str, data: bytes) -> None:
     client = storage.Client()
     bucket = client.bucket(bucket_name)
     blob = bucket.blob(object_name)
-    blob.upload_from_string(data, content_type="application/xml")
+    blob.upload_from_string(data, content_type=content_type)
