@@ -373,33 +373,16 @@ YOUTUBE_COMMENT_MAX_PAGES_PER_VIDEO=2           # 영상당 댓글 페이지 수
 
 ```
 web/
-├── frontend/                    # Next.js 앱
-│   ├── app/                     # App Router
-│   │   ├── page.tsx             # Overview 페이지
-│   │   ├── trending/
-│   │   ├── channels/
-│   │   ├── categories/
-│   │   └── chat/
-│   ├── components/              # UI 컴포넌트
-│   │   ├── ui/                  # shadcn/ui
-│   │   ├── charts/              # 차트 컴포넌트
-│   │   └── chat/                # 챗봇 컴포넌트
-│   ├── lib/                     # 유틸리티
-│   └── package.json
-│
-└── backend/                     # FastAPI 앱
-    ├── app/
-    │   ├── main.py              # 엔트리포인트
-    │   ├── routers/             # API 라우터
-    │   │   ├── trending.py
-    │   │   ├── channels.py
-    │   │   └── chat.py
-    │   ├── services/            # 비즈니스 로직
-    │   │   ├── supabase.py
-    │   │   └── ollama.py
-    │   └── models/              # Pydantic 모델
-    ├── requirements.txt
-    └── .env
+├── frontend/             # Next.js 프론트엔드
+│   ├── app/              # 페이지 라우팅
+│   ├── components/       # 공용 UI 컴포넌트
+│   └── lib/              # API 클라이언트 및 유틸
+└── backend/              # FastAPI 백엔드
+    ├── app/              # 핵심 로직
+    │   ├── routers/      # API 엔드포인트
+    │   ├── services/     # AI/DB 서비스
+    │   └── models/       # Pydantic 모델
+    └── knowledge_base/   # RAG용 지식 문서
 ```
 
 ---

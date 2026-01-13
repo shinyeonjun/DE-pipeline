@@ -5,6 +5,3 @@ venv/
 data_collect/data/
 data/
 *.log
-.gcloudignore
-.claude/
-.antigravityrules
