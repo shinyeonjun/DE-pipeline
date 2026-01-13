@@ -296,48 +296,33 @@ YOUTUBE_COMMENT_MAX_PAGES_PER_VIDEO=2           # 영상당 댓글 페이지 수
 
 ## AI 챗봇 아키텍처
 
-```mermaid
-flowchart TB
-    subgraph Input
-        A[User Question]
-    end
-
-    subgraph Router[Query Router]
-        B{Classification}
-        B -->|DATA| C[Data Analysis Path]
-        B -->|KNOWLEDGE| D[RAG Search Path]
-    end
-
-    subgraph Analysis[LLM Analysis]
-        E[Unified Analysis]
-        F[(Supabase Schema)]
-        E <-.->|Self-Healing| F
-    end
-
-    subgraph Retrieval[Data Retrieval]
-        G[Parallel View Query]
-        H[RAG Vector Search]
-    end
-
-    subgraph Stats[Statistical Analysis]
-        I[Python Stats: Correlation, Z-Score]
-    end
-
-    subgraph Output
-        J[Final AI Response]
-    end
-
-    A --> B
-    C --> E
-    D --> H
-    E --> G
-    G --> I
-    H --> I
-    I --> J
-
-    style A fill:#ef4444,color:#fff
-    style J fill:#10b981,color:#fff
-    style B fill:#f59e0b,color:#000
+```
++------------------------------------------------------------------------------+
+|                          AI Chatbot Architecture                             |
++------------------------------------------------------------------------------+
+|                                                                              |
+|   [User Question]                                                            |
+|          |                                                                   |
+|          v                                                                   |
+|   +---------------+          +------------------+          +--------------+  |
+|   | Query Router  |--(DATA)->| LLM Analysis     |<-(Schema)| Supabase     |  |
+|   | (Classify)    |          | (Unified)        |          | (Schema DB)  |  |
+|   +-------+-------+          +--------+---------+          +--------------+  |
+|           |                           |                                      |
+|           v                           v                                      |
+|   +---------------+          +----------------------------------+            |
+|   | RAG Search    |          | Parallel View Query (max 3)      |            |
+|   +-------+-------+          +----------------+-----------------+            |
+|           |                                   |                              |
+|           v                                   v                              |
+|   +--------------------------------------------------------+                 |
+|   | Python Statistical Analysis (Correlation, Z-Score)     |                 |
+|   +----------------------------+---------------------------+                 |
+|                                |                                             |
+|                                v                                             |
+|                         [Final AI Response]                                  |
+|                                                                              |
++------------------------------------------------------------------------------+
 ```
 
 
