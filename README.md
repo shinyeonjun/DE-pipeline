@@ -565,3 +565,33 @@ transform/
 **교훈**: 데이터 유형별로 **책임 분리**하면 테스트, 디버깅, 확장이 용이해짐
 
 ---
+
+## 트러블슈팅 및 유지보수 (Troubleshooting & Maintenance)
+
+### 1. 트렌딩 순위 중복 및 데이터 불일치 이슈 (2026-01-13)
+
+- **문제 현상**: AI 챗봇 및 웹 대시보드에서 모든 영상의 순위가 50위로 표시되거나, 1~50위 영상이 여러 세트 중복되어 나타나는 현상 발생.
+- **원인 분석**: 
+  - 유튜브 API는 페이지당 50개씩 데이터를 반환함.
+  - 기존 `transform_videos` 로직이 파일별로 순위(rank)를 1부터 다시 시작함 (`enumerate(items, start=1)`).
+  - 결과적으로 1페이지(1~50위)와 2페이지(51~100위) 등이 모두 1~50위로 DB에 기록됨.
+- **해결 방법**:
+  - **코드 수정**: `videos.py` 가공 로직에서 파일명(`page_00x.json`)을 인식하여 `(page_num - 1) * 50 + 1` 오프셋을 적용하도록 수정.
+  - **데이터 복구**: 기존의 잘못된 `videos_list` 가공 데이터를 DB에서 전량 삭제 후, `full_retrigger.py` 스크립트를 통해 GCS 원본 데이터를 전체 재적재(Full Re-trigger).
+
+### 2. 전체 데이터 재가공 (Full Re-trigger) 가이드
+
+데이터 가공 로직이 변경되어 과거 데이터를 모두 다시 적재해야 할 경우 다음 순서를 따릅니다.
+
+1.  **배포**: 수정된 로직을 Cloud Functions에 배포합니다.
+2.  **DB 정리**: 해당 데이터 타입의 기존 기록을 삭제합니다.
+    ```sql
+    DELETE FROM fact_video_snapshots;
+    DELETE FROM processed_files WHERE data_type = 'videos_list';
+    ```
+3.  **스크립트 실행**: `transform/full_retrigger.py`를 실행하여 GCS의 모든 파일을 다시 트리거합니다.
+    ```bash
+    python full_retrigger.py
+    ```
+4.  **모니터링**: Supabase 대시보드에서 `fact_video_snapshots` 테이블에 데이터가 순차적으로(1~200위) 쌓이는지 확인합니다.
+
