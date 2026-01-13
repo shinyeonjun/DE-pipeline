@@ -1,6 +1,7 @@
 """
 Videos Transformer - 트렌딩 영상 데이터 변환
 """
+import re
 import logging
 from typing import Dict, Any
 from datetime import datetime, timezone
@@ -24,6 +25,14 @@ def transform_videos(client, bucket, blob_path: str, metadata: Dict[str, Any]) -
         logger.warning(f"No items found in {blob_path}")
         return {"records_count": 0}
     
+    # 페이지 번호 추출 및 랭크 오프셋 계산 (파일명 포맷: page_001.json)
+    start_rank = 1
+    match = re.search(r"page_(\d+)\.json", blob_path)
+    if match:
+        page_num = int(match.group(1))
+        # 한 페이지당 50개 기준 (YouTube API 기본값)
+        start_rank = (page_num - 1) * 50 + 1
+    
     # 카테고리 매핑 로드
     category_map = get_category_map(client)
     
@@ -39,7 +48,7 @@ def transform_videos(client, bucket, blob_path: str, metadata: Dict[str, Any]) -
             pass
     
     records = []
-    for rank, item in enumerate(items, start=1):
+    for rank, item in enumerate(items, start=start_rank):
         snippet = item.get("snippet", {})
         statistics = item.get("statistics", {})
         content_details = item.get("contentDetails", {})
