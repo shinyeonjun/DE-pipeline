@@ -325,6 +325,7 @@ YOUTUBE_COMMENT_MAX_PAGES_PER_VIDEO=2           # 영상당 댓글 페이지 수
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
+---
 
 ### AI 분석 파이프라인 설명
 
@@ -368,6 +369,8 @@ YOUTUBE_COMMENT_MAX_PAGES_PER_VIDEO=2           # 영상당 댓글 페이지 수
 | `ai_video_history` | 비디오 순위/조회수 이력 |
 | `ai_popular_comments` | 인기 댓글 |
 | `ai_daily_summary` | 일별 요약 통계 |
+
+---
 
 ### 웹 프로젝트 구조
 
