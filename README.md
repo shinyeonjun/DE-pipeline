@@ -299,32 +299,32 @@ YOUTUBE_COMMENT_MAX_PAGES_PER_VIDEO=2           # 영상당 댓글 페이지 수
 ```mermaid
 flowchart TB
     subgraph Input
-        A[🙋 User Question]
+        A[User Question]
     end
 
-    subgraph Step0["Step 0: Query Router"]
-        B{질문 분류}
-        B -->|DATA| C[데이터 분석 경로]
-        B -->|KNOWLEDGE| D[RAG 검색 경로]
+    subgraph Router[Query Router]
+        B{Classification}
+        B -->|DATA| C[Data Analysis Path]
+        B -->|KNOWLEDGE| D[RAG Search Path]
     end
 
-    subgraph Step1["Step 1: LLM Analysis"]
-        E[통합 분석<br/>Intent + Entity + View 선택]
-        F[(Supabase<br/>스키마 조회)]
+    subgraph Analysis[LLM Analysis]
+        E[Unified Analysis]
+        F[(Supabase Schema)]
         E <-.->|Self-Healing| F
     end
 
-    subgraph Step3["Step 3: Data Retrieval"]
-        G[Parallel View Query<br/>최대 3개 동시 조회]
-        H[RAG 벡터 검색<br/>Knowledge Base]
+    subgraph Retrieval[Data Retrieval]
+        G[Parallel View Query]
+        H[RAG Vector Search]
     end
 
-    subgraph Step4["Step 4: Analysis"]
-        I[Python 통계 분석<br/>상관계수 · Z-Score 이상치]
+    subgraph Stats[Statistical Analysis]
+        I[Python Stats: Correlation, Z-Score]
     end
 
     subgraph Output
-        J[📊 Final AI Response<br/>+ 시각화 + 후속 질문]
+        J[Final AI Response]
     end
 
     A --> B
