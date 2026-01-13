@@ -379,19 +379,41 @@ YOUTUBE_COMMENT_MAX_PAGES_PER_VIDEO=2           # 영상당 댓글 페이지 수
 
 ### 웹 프로젝트 구조
 
-```
+```text
 web/
-├── frontend/             # Next.js 프론트엔드
-│   ├── app/              # 페이지 라우팅
-│   ├── components/       # 공용 UI 컴포넌트
-│   └── lib/              # API 클라이언트 및 유틸
-└── backend/              # FastAPI 백엔드
-    ├── app/              # 핵심 로직
-    │   ├── routers/      # API 엔드포인트
-    │   ├── services/     # AI/DB 서비스
-    │   └── models/       # Pydantic 모델
-    └── knowledge_base/   # RAG용 지식 문서
+├── frontend/                 # Next.js (App Router)
+│   ├── app/                  # 페이지 라우팅 및 레이아웃
+│   │   ├── (auth)/           # 인증 관련 페이지
+│   │   ├── trending/         # 트렌딩 분석 페이지
+│   │   ├── channels/         # 채널 분석 페이지
+│   │   ├── categories/       # 카테고리 분석 페이지
+│   │   └── chat/             # AI 챗봇 인터페이스
+│   ├── components/           # 재사용 가능한 UI 컴포넌트
+│   │   ├── ui/               # shadcn/ui 기본 컴포넌트
+│   │   ├── charts/           # Recharts 기반 시각화
+│   │   └── chat/             # 챗봇 전용 컴포넌트
+│   ├── lib/                  # 유틸리티 및 API 클라이언트
+│   └── public/               # 정적 에셋
+│
+└── backend/                  # FastAPI (Asynchronous)
+    ├── app/
+    │   ├── main.py           # 서버 진입점
+    │   ├── routers/          # API 엔드포인트 정의
+    │   ├── services/         # 비즈니스 로직 (Ollama, Supabase)
+    │   ├── models/           # Pydantic 데이터 모델
+    │   └── core/             # 공통 설정 및 보안
+    ├── knowledge_base/       # RAG용 지식 문서 (Markdown)
+    └── requirements.txt      # 의존성 패키지 목록
 ```
+
+| 구성 요소 | 기술 | 상세 설명 |
+| :--- | :--- | :--- |
+| **Frontend** | Next.js 14 | App Router 및 SSR을 통한 성능 최적화 |
+| **State** | React Context/Hooks | 클라이언트 사이드 상태 관리 및 실시간 데이터 바인딩 |
+| **Styling** | Tailwind CSS | 유틸리티 퍼스트 프레임워크를 활용한 반응형 디자인 |
+| **API Server** | FastAPI | Pydantic v2 기반의 고성능 비동기 API 서버 |
+| **Analytics** | Pandas / NumPy | 백엔드 내 실시간 통계 분석 연산 처리 |
+| **Database** | Supabase | PostgreSQL 기반의 관리형 DB 및 실시간 구독 기능 |
 
 ---
 
