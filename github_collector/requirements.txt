@@ -1,4 +1,5 @@
 PyGithub==2.5.0
 google-cloud-storage==2.19.0
 python-dotenv==1.0.1
-# 한국어 주석: GitHub API와 GCS 연동을 위한 패키지 (Refactored)
+pydantic==2.10.6
+# 한국어 주석: GitHub API, GCS 연동 및 데이터 검증(Pydantic)을 위한 패키지
