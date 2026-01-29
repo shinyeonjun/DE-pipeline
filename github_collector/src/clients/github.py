@@ -13,8 +13,7 @@ class GitHubClient:
         retry_config = GithubRetry(
             total=5, 
             backoff_factor=2, 
-            status_forcelist=[403, 500, 502, 503, 504],
-            retry_on_403=True
+            status_forcelist=[403, 500, 502, 503, 504]
         )
         
         if not config.token:
