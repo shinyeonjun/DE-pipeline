@@ -40,9 +40,8 @@ class LocalStorage:
         """Hive-style 경로 생성 (GCS와 동일한 로직)"""
         now = datetime.now(timezone.utc)
         date_str = now.strftime("%Y-%m-%d")
-        hour_str = now.strftime("%H")
         safe_repo_name = repo_full_name.replace("/", "_")
-        return f"raw/github/repos/repo={safe_repo_name}/date={date_str}/hour={hour_str}/{filename}"
+        return f"raw/github/date={date_str}/repo={safe_repo_name}/{filename}"
     
     def upload_json(self, data: dict, path: str, compress: bool = True) -> str:
         """JSON 데이터를 로컬에 저장"""

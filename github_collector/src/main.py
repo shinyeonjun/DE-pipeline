@@ -57,7 +57,13 @@ def main():
     target_repos = []
     if config.github.discovery_enabled:
         try:
-            search_results = gh_client.search_repositories(config.github.search_query)
+            # 동적으로 최근 7일 내 업데이트된 리포만 검색 (매일 다른 결과)
+            from datetime import timedelta
+            days_ago = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%d")
+            dynamic_query = f"{config.github.search_query} pushed:>={days_ago}"
+            logger.info(f"동적 검색 쿼리: {dynamic_query}")
+            
+            search_results = gh_client.search_repositories(dynamic_query)
             count = 0
             for repo in search_results:
                 if count >= config.github.max_repos: break
