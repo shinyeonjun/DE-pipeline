@@ -128,15 +128,17 @@ class GCSStorage:
     def build_path(
         repo_full_name: str,
         filename: str,
+        language: str = None,
     ) -> str:
         """데이터 분석 최적화를 위한 Hive 스타일 파티셔닝 경로를 생성합니다.
         
-        생성 규칙:
-            raw/github/date=YYYY-MM-DD/repo=리포지토리명/파일명
+        생성 규칙 (언어 파티션 포함):
+            raw/github/lang=언어/date=YYYY-MM-DD/repo=리포지토리명/파일명
         
         Args:
             repo_full_name (str): 리포지토리 전체 이름 (예: owner/repo)
             filename (str): 저장될 파일 이름
+            language (str): 프로그래밍 언어 (예: Python, JavaScript)
             
         Returns:
             str: 생성된 GCS 물리 경로
@@ -148,5 +150,11 @@ class GCSStorage:
         # 파일 시스템에서 안전하게 사용할 수 있도록 경로 구분자(/)를 언더바(_)로 변환
         safe_repo_name = repo_full_name.replace("/", "_")
         
-        return f"raw/github/date={date_str}/repo={safe_repo_name}/{filename}"
+        # 언어 정규화 (소문자, 공백 제거, None 처리)
+        if language:
+            safe_lang = language.lower().replace(" ", "_").replace("#", "sharp")
+        else:
+            safe_lang = "unknown"
+        
+        return f"raw/github/lang={safe_lang}/date={date_str}/repo={safe_repo_name}/{filename}"
 
