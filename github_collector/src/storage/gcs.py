@@ -65,7 +65,7 @@ class GCSStorage:
         """데이터 분석 최적화를 위한 Hive 스타일 파티셔닝 경로를 생성합니다.
         
         생성 규칙:
-            raw/github/repos/repo=리포지토리명/date=YYYY-MM-DD/hour=HH/파일명
+            raw/github/date=YYYY-MM-DD/repo=리포지토리명/파일명
         
         Args:
             repo_full_name (str): 리포지토리 전체 이름 (예: owner/repo)
@@ -77,9 +77,8 @@ class GCSStorage:
         # 현재 시간 기준 파티션 정보 추출 (UTC 프로젝트 표준)
         now = datetime.now(timezone.utc)
         date_str = now.strftime("%Y-%m-%d")
-        hour_str = now.strftime("%H")
         
         # 파일 시스템에서 안전하게 사용할 수 있도록 경로 구분자(/)를 언더바(_)로 변환
         safe_repo_name = repo_full_name.replace("/", "_")
         
-        return f"raw/github/repos/repo={safe_repo_name}/date={date_str}/hour={hour_str}/{filename}"
+        return f"raw/github/date={date_str}/repo={safe_repo_name}/{filename}"
