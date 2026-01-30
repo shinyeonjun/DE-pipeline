@@ -3,12 +3,15 @@ import gzip
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any, Dict, Set, List
 from google.cloud import storage
 from src.config import GCPConfig
 
 # 프로젝트 표준 로거 설정
 logger = logging.getLogger(__name__)
+
+# 수집 이력 파일 경로 (중복 방지용)
+COLLECTED_INDEX_PATH = "metadata/collected_repos.json"
 
 class GCSStorage:
     """GCS 스토리지 엔지니어링 클래스
@@ -57,6 +60,70 @@ class GCSStorage:
         logger.info(f"GCS 텍스트 업로드 성공: {path} (Type: {content_type})")
         return f"gs://{self.config.bucket_name}/{path}"
 
+    def load_collected_repos(self) -> Set[str]:
+        """이미 수집된 레포지토리 목록을 GCS에서 로드합니다.
+        
+        Returns:
+            Set[str]: 이미 수집된 레포지토리 이름 집합
+        """
+        try:
+            blob = self._bucket.blob(COLLECTED_INDEX_PATH)
+            if blob.exists():
+                content = blob.download_as_string().decode("utf-8")
+                data = json.loads(content)
+                repos = set(data.get("repos", []))
+                logger.info(f"수집 이력 로드 완료: {len(repos)}개 레포 존재")
+                return repos
+            else:
+                logger.info("수집 이력 파일 없음 - 새로 시작")
+                return set()
+        except Exception as e:
+            logger.warning(f"수집 이력 로드 실패 (빈 세트로 시작): {e}")
+            return set()
+    
+    def save_collected_repos(self, repos: Set[str]) -> None:
+        """수집된 레포지토리 목록을 GCS에 저장합니다.
+        
+        Args:
+            repos: 수집된 레포지토리 이름 집합
+        """
+        try:
+            data = {
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "count": len(repos),
+                "repos": sorted(list(repos))  # 정렬하여 저장
+            }
+            blob = self._bucket.blob(COLLECTED_INDEX_PATH)
+            blob.upload_from_string(
+                json.dumps(data, ensure_ascii=False, indent=2),
+                content_type="application/json"
+            )
+            logger.info(f"수집 이력 저장 완료: {len(repos)}개 레포")
+        except Exception as e:
+            logger.error(f"수집 이력 저장 실패: {e}")
+
+    def list_existing_repos(self) -> Set[str]:
+        """GCS 버킷에서 실제 저장된 레포지토리 목록을 스캔합니다.
+        
+        Note: 대규모 버킷에서는 비용 발생 가능. 인덱스 파일 우선 권장.
+        """
+        repos = set()
+        try:
+            # raw/github/date=*/repo=* 패턴에서 레포명 추출
+            blobs = self._bucket.list_blobs(prefix="raw/github/")
+            for blob in blobs:
+                # 경로: raw/github/date=2026-01-30/repo=owner_name/metadata.json.gz
+                parts = blob.name.split("/")
+                for part in parts:
+                    if part.startswith("repo="):
+                        repo_name = part.replace("repo=", "").replace("_", "/", 1)
+                        repos.add(repo_name)
+                        break
+            logger.info(f"GCS 스캔 완료: {len(repos)}개 레포 발견")
+        except Exception as e:
+            logger.warning(f"GCS 스캔 실패: {e}")
+        return repos
+
     @staticmethod
     def build_path(
         repo_full_name: str,
@@ -82,3 +149,4 @@ class GCSStorage:
         safe_repo_name = repo_full_name.replace("/", "_")
         
         return f"raw/github/date={date_str}/repo={safe_repo_name}/{filename}"
+
