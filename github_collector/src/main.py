@@ -87,53 +87,67 @@ def main():
             import time
             import random
             
-            # 최근 7일 내 푸시된 프로젝트만
-            days_ago = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%d")
-            
             # 토픽 순서 랜덤화 (매번 다른 토픽 우선순위)
             shuffled_topics = DISCOVERY_TOPICS.copy()
             random.shuffle(shuffled_topics)
             
-            repos_per_topic = max(5, config.github.max_repos // len(shuffled_topics))
+            # 탐색 조건 단계별 완화 (stars 기준, pushed 기간)
+            DISCOVERY_TIERS = [
+                {"stars": 100, "days": 7},   # Tier 1: 인기 + 최신
+                {"stars": 50, "days": 14},   # Tier 2: 중간 인기 + 2주
+                {"stars": 30, "days": 30},   # Tier 3: 낮은 기준 + 1달
+            ]
             
-            for topic in shuffled_topics:
-                if len(collected_set) >= config.github.max_repos:
+            for tier_idx, tier in enumerate(DISCOVERY_TIERS):
+                if len(target_repos) >= config.github.max_repos:
                     break
                     
-                # 별 수 기준 (인기순)과 최신순 번갈아 검색
-                for sort_by in ["stars", "updated"]:
-                    if len(collected_set) >= config.github.max_repos:
+                days_ago = (datetime.now(timezone.utc) - timedelta(days=tier["days"])).strftime("%Y-%m-%d")
+                min_stars = tier["stars"]
+                
+                logger.info(f"=== 탐색 Tier {tier_idx + 1}: stars>{min_stars}, pushed>={tier['days']}일 ===")
+                
+                for topic in shuffled_topics:
+                    if len(target_repos) >= config.github.max_repos:
                         break
                         
-                    query = f"{topic} pushed:>={days_ago} stars:>100"
-                    logger.info(f"검색 중: {topic} (정렬: {sort_by})")
-                    
-                    try:
-                        search_results = gh_client.search_repositories(query, sort=sort_by)
-                        topic_count = 0
+                    # 별 수 기준 (인기순)과 최신순 번갈아 검색
+                    for sort_by in ["stars", "updated"]:
+                        if len(target_repos) >= config.github.max_repos:
+                            break
+                            
+                        query = f"{topic} pushed:>={days_ago} stars:>{min_stars}"
+                        logger.info(f"검색 중: {topic} (정렬: {sort_by}, Tier {tier_idx + 1})")
                         
-                        for repo in search_results:
-                            # 이미 수집된 레포는 스킵
-                            if repo.full_name not in collected_set:
+                        try:
+                            search_results = gh_client.search_repositories(query, sort=sort_by)
+                            new_count = 0
+                            
+                            for repo in search_results:
+                                if len(target_repos) >= config.github.max_repos:
+                                    break
+                                    
+                                # 이미 수집된 레포는 스킵
+                                if repo.full_name in collected_set:
+                                    continue
+                                    
                                 collected_set.add(repo.full_name)
                                 target_repos.append(repo.full_name)
-                                topic_count += 1
+                                new_count += 1
                                 logger.debug(f"새 레포 추가: {repo.full_name}")
                                 
-                            if topic_count >= repos_per_topic // 2:
-                                break
-                            if len(collected_set) >= config.github.max_repos:
-                                break
+                            if new_count > 0:
+                                logger.info(f"  → {new_count}개 신규 발견 (현재 총 {len(target_repos)}개)")
                                 
-                        # Rate Limit 방지: 2초 대기 (30 req/min)
-                        time.sleep(2)
-                        
-                    except Exception as e:
-                        logger.warning(f"토픽 검색 실패 ({topic}): {e}")
-                        continue
-                        
+                            # Rate Limit 방지: 2초 대기 (30 req/min)
+                            time.sleep(2)
+                            
+                        except Exception as e:
+                            logger.warning(f"토픽 검색 실패 ({topic}): {e}")
+                            continue
+                            
             new_repos_count = len(target_repos)
-            logger.info(f"다중 토픽 탐색 완료: {new_repos_count}개 신규 발견 (기존 {len(already_collected)}개 제외, 총 토픽 {len(shuffled_topics)}개)")
+            logger.info(f"다중 토픽 탐색 완료: {new_repos_count}개 신규 발견 (기존 {len(already_collected)}개 제외)")
             
         except Exception as e:
             logger.error(f"탐색 실패: {e}")
