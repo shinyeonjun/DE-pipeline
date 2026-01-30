@@ -98,6 +98,12 @@ def main():
         try:
             from datetime import timedelta
             import time
+            import random
+            
+            # 언어 순서 랜덤화 (매 실행마다 다른 언어 우선순위)
+            shuffled_langs = PRIORITY_LANGUAGES.copy()
+            random.shuffle(shuffled_langs)
+            logger.info(f"언어 검색 순서: {', '.join(shuffled_langs[:5])}...")
             
             # 제외 토픽 쿼리 생성
             exclude_query = " ".join([f"-topic:{t}" for t in EXCLUDE_TOPICS[:15]])  # API 쿼리 길이 제한
@@ -119,7 +125,7 @@ def main():
                 logger.info(f"=== 탐색 Tier {tier_idx + 1}: stars>{min_stars}, pushed>={tier['days']}일 ===")
                 
                 # 언어별로 검색 (다양성 확보)
-                for lang in PRIORITY_LANGUAGES:
+                for lang in shuffled_langs:
                     if len(target_repos) >= config.github.max_repos:
                         break
                     
