@@ -57,45 +57,56 @@ def main():
     already_collected = storage.load_collected_repos()
     logger.info(f"기존 수집 이력: {len(already_collected)}개")
     
-    # 수집 대상 탐색 - 다양한 토픽 로테이션
+    # 수집 대상 탐색 - 인기순 + 제외 토픽
     target_repos = []
     collected_set = already_collected.copy()  # 기존 이력으로 초기화
     
-    # 데이터 엔지니어링 관련 다양한 토픽 리스트
-    DISCOVERY_TOPICS = [
-        "topic:data-engineering",
-        "topic:etl",
-        "topic:data-pipeline",
-        "topic:apache-airflow",
-        "topic:apache-spark",
-        "topic:apache-kafka",
-        "topic:dbt",
-        "topic:data-warehouse",
-        "topic:mlops",
-        "topic:machine-learning",
-        "topic:deep-learning",
-        "topic:llm",
-        "topic:rag",
-        "topic:vector-database",
-        "topic:kubernetes",
-        "topic:devops",
+    # 제외할 토픽 (개발자에게 실질적 가치가 낮은 분야)
+    EXCLUDE_TOPICS = [
+        # 게임/엔터테인먼트
+        "game", "games", "unity", "godot", "unreal-engine", "gamedev",
+        "game-development", "game-engine", "pygame", "phaser",
+        "minecraft", "roblox", "steam", "emulator", "rom",
+        
+        # 개인 설정/환경
+        "dotfiles", "config", "configuration", "vim", "neovim", "emacs",
+        "zsh", "bash", "fish-shell", "tmux", "i3", "polybar",
+        
+        # 목록형/이벤트성
+        "awesome", "awesome-list", "curated-list", "resources",
+        "hacktoberfest", "interview", "interview-questions",
+        "cheatsheet", "cheat-sheet", "roadmap",
+        
+        # 교육/튜토리얼 (실제 프로젝트가 아닌 것)
+        "tutorial", "tutorials", "course", "learning", "education",
+        "coding-challenges", "leetcode", "algorithm-challenges",
+        
+        # 기타 제외
+        "windows", "macos", "linux-desktop", "theme", "themes",
+        "icons", "wallpaper", "font", "fonts",
+        "telegram-bot", "discord-bot", "twitter-bot",
+        "scraper", "crawler", "spider",  # 스크래퍼류
+    ]
+    
+    # 수집할 언어 우선순위 (개발자 실무 언어)
+    PRIORITY_LANGUAGES = [
+        "python", "javascript", "typescript", "go", "rust",
+        "java", "kotlin", "swift", "c", "cpp"
     ]
     
     if config.github.discovery_enabled:
         try:
             from datetime import timedelta
             import time
-            import random
             
-            # 토픽 순서 랜덤화 (매번 다른 토픽 우선순위)
-            shuffled_topics = DISCOVERY_TOPICS.copy()
-            random.shuffle(shuffled_topics)
+            # 제외 토픽 쿼리 생성
+            exclude_query = " ".join([f"-topic:{t}" for t in EXCLUDE_TOPICS[:15]])  # API 쿼리 길이 제한
             
             # 탐색 조건 단계별 완화 (stars 기준, pushed 기간)
             DISCOVERY_TIERS = [
-                {"stars": 100, "days": 7},   # Tier 1: 인기 + 최신
-                {"stars": 50, "days": 14},   # Tier 2: 중간 인기 + 2주
-                {"stars": 30, "days": 30},   # Tier 3: 낮은 기준 + 1달
+                {"stars": 500, "days": 7},    # Tier 1: 매우 인기 + 최신
+                {"stars": 200, "days": 14},   # Tier 2: 인기 + 2주
+                {"stars": 100, "days": 30},   # Tier 3: 중간 + 1달
             ]
             
             for tier_idx, tier in enumerate(DISCOVERY_TIERS):
@@ -107,47 +118,52 @@ def main():
                 
                 logger.info(f"=== 탐색 Tier {tier_idx + 1}: stars>{min_stars}, pushed>={tier['days']}일 ===")
                 
-                for topic in shuffled_topics:
+                # 언어별로 검색 (다양성 확보)
+                for lang in PRIORITY_LANGUAGES:
                     if len(target_repos) >= config.github.max_repos:
                         break
+                    
+                    # 인기순 검색 (토픽 없이)
+                    query = f"language:{lang} stars:>{min_stars} pushed:>={days_ago} {exclude_query}"
+                    logger.info(f"검색 중: {lang} (Tier {tier_idx + 1})")
+                    
+                    try:
+                        search_results = gh_client.search_repositories(query, sort="stars")
+                        new_count = 0
                         
-                    # 별 수 기준 (인기순)과 최신순 번갈아 검색
-                    for sort_by in ["stars", "updated"]:
-                        if len(target_repos) >= config.github.max_repos:
-                            break
+                        for repo in search_results:
+                            if len(target_repos) >= config.github.max_repos:
+                                break
                             
-                        query = f"{topic} pushed:>={days_ago} stars:>{min_stars}"
-                        logger.info(f"검색 중: {topic} (정렬: {sort_by}, Tier {tier_idx + 1})")
-                        
-                        try:
-                            search_results = gh_client.search_repositories(query, sort=sort_by)
-                            new_count = 0
+                            # 이미 수집된 레포는 스킵
+                            if repo.full_name in collected_set:
+                                continue
                             
-                            for repo in search_results:
-                                if len(target_repos) >= config.github.max_repos:
-                                    break
-                                    
-                                # 이미 수집된 레포는 스킵
-                                if repo.full_name in collected_set:
+                            # 제외 토픽 추가 필터링 (API 쿼리 제한 우회)
+                            try:
+                                repo_topics = repo.get_topics()
+                                if any(t in EXCLUDE_TOPICS for t in repo_topics):
                                     continue
-                                    
-                                collected_set.add(repo.full_name)
-                                target_repos.append(repo.full_name)
-                                new_count += 1
-                                logger.debug(f"새 레포 추가: {repo.full_name}")
+                            except:
+                                pass  # 토픽 조회 실패 시 무시
                                 
-                            if new_count > 0:
-                                logger.info(f"  → {new_count}개 신규 발견 (현재 총 {len(target_repos)}개)")
-                                
-                            # Rate Limit 방지: 2초 대기 (30 req/min)
-                            time.sleep(2)
+                            collected_set.add(repo.full_name)
+                            target_repos.append(repo.full_name)
+                            new_count += 1
+                            logger.debug(f"새 레포 추가: {repo.full_name}")
                             
-                        except Exception as e:
-                            logger.warning(f"토픽 검색 실패 ({topic}): {e}")
-                            continue
+                        if new_count > 0:
+                            logger.info(f"  → {new_count}개 신규 발견 (현재 총 {len(target_repos)}개)")
                             
+                        # Rate Limit 방지: 2초 대기 (30 req/min)
+                        time.sleep(2)
+                        
+                    except Exception as e:
+                        logger.warning(f"언어 검색 실패 ({lang}): {e}")
+                        continue
+                        
             new_repos_count = len(target_repos)
-            logger.info(f"다중 토픽 탐색 완료: {new_repos_count}개 신규 발견 (기존 {len(already_collected)}개 제외)")
+            logger.info(f"인기순 탐색 완료: {new_repos_count}개 신규 발견 (기존 {len(already_collected)}개 제외)")
             
         except Exception as e:
             logger.error(f"탐색 실패: {e}")
