@@ -158,9 +158,9 @@ def main():
             metadata = result["metadata"]
             readme_raw = result["readme"]
 
-            # 2. GCS 경로 생성 (Hive-style 공유)
+            # 2. GCS 경로 생성 (Hive-style + 언어 파티션)
             # build_path는 파일명을 포함하므로 디렉토리 경로만 추출하기 위해 빈 파일명 전달
-            base_path = GCSStorage.build_path(repo_name, "")
+            base_path = GCSStorage.build_path(repo_name, "", language=metadata.language)
             
             # 3. 하이브리드 업로드
             # A. 메타데이터 (JSON.gz)
