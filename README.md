@@ -5,30 +5,52 @@
 [![Frontend](https://img.shields.io/badge/frontend-Next.js-111827)](#)
 [![Infra](https://img.shields.io/badge/infra-GCP%20%C2%B7%20Supabase-2563eb)](#)
 
+> **기간:** 2026.01–2026.02 · **형태:** 개인 프로젝트 · **범위:** 데이터 수집부터 ELT, 분석 API, 대시보드와 챗봇 연결까지 전체 구현
+
 YouTube 데이터를 수집·정제·적재한 뒤 분석 API, 대시보드, 질의형 챗봇까지 연결한 end-to-end 데이터 파이프라인 프로젝트입니다.
 
 ![DE-pipeline 대시보드](docs/assets/dashboard.png)
 
-## What it demonstrates
+## 문제
 
-- Raw -> Clean -> Mart -> API -> Dashboard 흐름
-- YouTube API 기반 videos, comments, categories, channels 수집
-- GCS Raw 적재, Supabase/PostgreSQL 정제
-- FastAPI 분석 API
-- Next.js 대시보드와 챗봇
+수집 데이터, 시각화, 질의응답이 각각 분리되어 있으면 데이터를 분석하고 실제 결과로 사용하는 흐름이 끊깁니다. 이 프로젝트는 원천 데이터 수집부터 분석·질의까지 하나의 재현 가능한 경로로 연결하는 것을 목표로 했습니다.
+
+## 만든 것
 
 ```text
-YouTube Data API -> GCS Raw -> Transform -> Supabase/PostgreSQL Clean & Mart
-                                                  -> FastAPI -> Next.js dashboard / chatbot
+YouTube Data API
+      ↓
+GCS Raw
+      ↓
+Transform
+      ↓
+Supabase / PostgreSQL Clean & Mart
+      ↓
+FastAPI 분석 API
+      ├─ Next.js 대시보드
+      └─ 질의형 챗봇
 ```
 
-## Contributions
+- YouTube API 기반 videos, comments, categories, channels 수집
+- GCS Raw 적재와 메타데이터 관리
+- Transform 레이어에서 정제·적재
+- Supabase/PostgreSQL 기반 Clean·Mart 데이터 구조
+- FastAPI 분석 API
+- Next.js 대시보드와 RAG 기반 챗봇 흐름
+
+## 직접 구현한 범위
 
 - 데이터 수집 파이프라인 설계
-- GCS 적재 구조와 메타데이터 규칙 정리
+- GCS Raw 적재 구조와 메타데이터 규칙 정리
 - Transform 레이어 구현
 - FastAPI 기반 분석 API 구현
 - Next.js 대시보드와 챗봇 흐름 연결
+
+## 기술적으로 확인한 것
+
+- Raw·정제·분석 계층을 분리해 데이터 흐름을 추적할 수 있도록 구성
+- API와 화면을 분리해 같은 분석 결과를 대시보드와 챗봇에서 재사용
+- 클라우드 저장소·데이터베이스·API·프런트엔드가 이어지는 전체 경로를 하나의 프로젝트로 검증
 
 ## Repository map
 
@@ -37,7 +59,7 @@ YouTube Data API -> GCS Raw -> Transform -> Supabase/PostgreSQL Clean & Mart
 - `web/backend/`: 분석 API
 - `web/frontend/`: 대시보드와 채팅 UI
 
-## Prerequisites
+## 실행 조건
 
 - Python and Node.js
 - YouTube Data API key
@@ -72,7 +94,8 @@ npm install
 npm run dev
 ```
 
-## Notes
+## 한계
 
-- The project is a portfolio pipeline, so running the complete cloud path requires your own YouTube, GCP, and Supabase configuration.
-- The dashboard can use `NEXT_PUBLIC_API_URL` to point at a non-default API address.
+- 포트폴리오용 파이프라인이므로 전체 cloud 경로를 실행하려면 각자의 YouTube, GCP, Supabase 설정이 필요합니다.
+- 데이터 규모, 처리 시간, 비용 지표는 실행 환경과 수집 범위에 따라 달라지므로 이 저장소에서 고정된 수치로 제시하지 않습니다.
+- 운영 배포 전에는 credential 관리, 재시도·중복 처리, 비용·쿼리 최적화를 별도로 검토해야 합니다.
