@@ -1,5 +1,6 @@
 # DE-pipeline
 
+[![CI](https://github.com/shinyeonjun/DE-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/shinyeonjun/DE-pipeline/actions/workflows/ci.yml)
 [![Data](https://img.shields.io/badge/data-YouTube%20API-red)](#)
 [![Backend](https://img.shields.io/badge/backend-FastAPI-009688)](#)
 [![Frontend](https://img.shields.io/badge/frontend-Next.js-111827)](#)
@@ -51,6 +52,15 @@ FastAPI 분석 API
 - Raw·정제·분석 계층을 분리해 데이터 흐름을 추적할 수 있도록 구성
 - API와 화면을 분리해 같은 분석 결과를 대시보드와 챗봇에서 재사용
 - 클라우드 저장소·데이터베이스·API·프런트엔드가 이어지는 전체 경로를 하나의 프로젝트로 검증
+
+## 알려진 한계와 다음 개선
+
+- **스케줄링·오케스트레이션**: 수집기는 Cloud Run job, 정제는 GCS 업로드 트리거 Cloud Function으로 동작하지만, 실행 스케줄(Cloud Scheduler 등)과 작업 간 의존성은 저장소에 코드로 정의되어 있지 않습니다. → Terraform으로 스케줄을 코드화하거나 Airflow/Dagster로 의존성을 명시할 예정입니다.
+- **멱등성**: `processed_files`로 처리한 파일을 건너뛰지만, 확인과 기록이 원자적이지 않고 팩트 테이블은 insert 전용(`transform/app/transformers/videos.py`, `comments.py`)이라 같은 파일을 다시 처리하면 중복 행이 생깁니다. → `(video_id, snapshot_at)` 같은 자연키로 upsert하고, 재처리·backfill 명령을 정리할 예정입니다.
+- **스키마 관리**: 팩트 테이블과 분석용 `ai_*` 뷰의 DDL이 저장소에 없습니다(현재 SQL 파일은 `web/backend/scripts/setup_pgvector.sql`뿐). → 마이그레이션 또는 dbt 모델로 옮기고 unique / not_null / freshness 테스트를 붙일 예정입니다.
+- **데이터 품질 검사**가 없습니다.
+- **분석 API**: Supabase 서비스 키를 그대로 사용하고, 오류 응답에 예외 메시지를 노출하며(`detail=str(e)`), 기본 설정이 `debug=True`입니다. 챗봇 엔드포인트에 인증과 rate limit이 없습니다.
+- **테스트 범위**: 테스트는 챗봇 단계(`web/backend/tests`)에만 있고, 수집기와 정제 로직에는 없습니다.
 
 ## Repository map
 
