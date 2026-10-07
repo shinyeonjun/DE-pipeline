@@ -2,6 +2,7 @@
 Trending Router - 트렌딩 API 엔드포인트
 """
 from fastapi import APIRouter, HTTPException
+from app.core.errors import internal_error
 from typing import List
 from .service import TrendingService
 from .schemas import VideoSnapshot, TrendingResponse
@@ -27,7 +28,7 @@ async def get_current_trending():
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error("trending.get_current_trending") from e
 
 
 @router.get("/video/{video_id}", response_model=VideoSnapshot)
@@ -44,7 +45,7 @@ async def get_video_latest(video_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error("trending.get_video_latest") from e
 
 
 @router.get("/velocity", response_model=List[VideoSnapshot])
@@ -55,5 +56,5 @@ async def get_rising_videos(limit: int = 10):
         return videos
     
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error("trending.get_rising_videos") from e
 

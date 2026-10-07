@@ -287,6 +287,18 @@ def build_structured_data(
 
 
 
+def _sort_by_rank(data_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """'순위' 값이 숫자인 항목을 1위부터 정렬한다. 순위가 없는 항목은 뒤로 보낸다."""
+
+    def rank_key(item: Dict[str, Any]):
+        try:
+            return (0, float(item.get("순위")))
+        except (TypeError, ValueError):
+            return (1, 0.0)
+
+    return sorted(data_list, key=rank_key)
+
+
 def generate_data_summary(all_data: Dict[str, Any], question: str) -> str:
     """폴백용 간단 데이터 요약 텍스트를 생성합니다."""
     lines = [f"'{question}'에 대한 조회 결과입니다:\n"]
@@ -310,7 +322,7 @@ def generate_data_summary(all_data: Dict[str, Any], question: str) -> str:
         if view_name == "ai_current_trending":
             lines.append("| 순위 | 채널 | 제목 | 조회수 | 카테고리 |")
             lines.append("|:---:|------|------|------:|:------:|")
-            for item in data_list[:5]:
+            for item in _sort_by_rank(data_list)[:5]:
                 rank = item.get("순위", "-")
                 channel = str(item.get("채널명", ""))[:15]
                 title = str(item.get("제목", item.get("동영상_제목", "")))[:25]

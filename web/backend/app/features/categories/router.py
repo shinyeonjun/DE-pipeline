@@ -2,6 +2,7 @@
 Categories Router - 카테고리 API 엔드포인트
 """
 from fastapi import APIRouter, HTTPException
+from app.core.errors import internal_error
 from typing import List, Dict
 from .service import CategoryService
 from .schemas import CategoryStats
@@ -17,7 +18,7 @@ async def get_category_stats():
         return stats
     
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error("categories.get_category_stats") from e
 
 
 @router.get("/distribution")
@@ -28,5 +29,5 @@ async def get_category_distribution() -> Dict[str, int]:
         return distribution
     
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error("categories.get_category_distribution") from e
 

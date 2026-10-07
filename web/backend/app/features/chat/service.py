@@ -2,10 +2,12 @@
 Chat Service - AI 챗봇 비즈니스 로직 (함수형 리팩토링 + RAG 하이브리드)
 데이터 분석(SQL) 경로와 지식 검색(RAG) 경로를 라우팅하여 처리합니다.
 """
-import traceback
+import logging
+from collections import OrderedDict
 from typing import List, Dict, Any, Optional
 from app.core import settings
 from .utils.llm import call_llm
+from app.core.errors import INTERNAL_ERROR_CODE
 from .steps import (
     route_query,
     analyze_question,
@@ -20,6 +22,53 @@ from .steps import (
 )
 
 
+logger = logging.getLogger(__name__)
+
+
+class LRUSessionHistory:
+    """세션별 대화 기록을 메모리에 보관하는 LRU 캐시.
+
+    - 세션 수가 ``max_sessions``를 넘으면 가장 오래 사용하지 않은 세션을 버린다.
+    - 세션마다 최근 ``max_messages_per_session``개의 메시지만 유지한다.
+    - ``get``과 ``append`` 모두 해당 세션을 가장 최근 사용으로 갱신한다.
+    """
+
+    def __init__(self, max_sessions: int = 100, max_messages_per_session: int = 20):
+        if max_sessions < 1 or max_messages_per_session < 1:
+            raise ValueError("max_sessions와 max_messages_per_session은 1 이상이어야 합니다.")
+        self.max_sessions = max_sessions
+        self.max_messages_per_session = max_messages_per_session
+        self._sessions: "OrderedDict[str, List[Dict[str, str]]]" = OrderedDict()
+
+    def get(self, session_id: str) -> List[Dict[str, str]]:
+        """세션의 대화 기록 사본을 반환한다. 없으면 빈 리스트."""
+        messages = self._sessions.get(session_id)
+        if messages is None:
+            return []
+        self._sessions.move_to_end(session_id)
+        return list(messages)
+
+    def append(self, session_id: str, role: str, content: str) -> None:
+        """세션에 메시지를 추가한다."""
+        messages = self._sessions.setdefault(session_id, [])
+        self._sessions.move_to_end(session_id)
+        messages.append({"role": role, "content": content})
+        if len(messages) > self.max_messages_per_session:
+            del messages[: len(messages) - self.max_messages_per_session]
+        while len(self._sessions) > self.max_sessions:
+            self._sessions.popitem(last=False)
+
+    def clear(self, session_id: Optional[str] = None) -> None:
+        """특정 세션 또는 전체 기록을 지운다."""
+        if session_id is None:
+            self._sessions.clear()
+        else:
+            self._sessions.pop(session_id, None)
+
+    def __len__(self) -> int:
+        return len(self._sessions)
+
+
 class AIChatService:
     """
     AI 챗봇 서비스
@@ -29,8 +78,8 @@ class AIChatService:
     def __init__(self, ollama_host: str, model: str):
         self.ollama_host = ollama_host
         self.model = model
-        self.conversation_history = []
-        self.session_histories = {} # 세션별 대화 기록 가상 저장 (DB 폴백용)
+        # 세션별 대화 기록 (메모리, LRU로 크기 제한)
+        self.session_histories = LRUSessionHistory(max_sessions=100, max_messages_per_session=20)
     
     async def _get_persistent_history(self, session_id: str, limit: int = 5) -> List[Dict[str, Any]]:
         """DB에서 세션별 대화 기록을 가져옵니다."""
@@ -48,7 +97,7 @@ class AIChatService:
             return history
         except Exception as e:
             print(f"[History] DB 조회 실패, 메모리 캐시 사용: {e}")
-            return self.session_histories.get(session_id, [])[-limit*2:]
+            return self.session_histories.get(session_id)[-limit*2:]
 
     async def _save_message(self, session_id: str, role: str, content: str):
         """대화를 DB에 영구 저장합니다."""
@@ -62,9 +111,7 @@ class AIChatService:
         except Exception as e:
             print(f"[History] DB 저장 실패: {e}")
             # 메모리 캐시 업데이트
-            if session_id not in self.session_histories:
-                self.session_histories[session_id] = []
-            self.session_histories[session_id].append({"role": role, "content": content})
+            self.session_histories.append(session_id, role, content)
 
     async def chat(self, user_message: str, session_id: str = "default") -> Dict[str, Any]:
         """챗봇 응답 파이프라인 (병렬화 및 영속성 강화 버전)"""
@@ -78,7 +125,7 @@ class AIChatService:
         try:
             # 0. 히스토리 로드 (영속화 비활성화 - 메모리만 사용)
             # history = await self._get_persistent_history(session_id)
-            history = self.session_histories.get(session_id, [])[-10:]
+            history = self.session_histories.get(session_id)[-10:]
             
             # 0.5단계: 질문 라우팅
             print(f"[Chat] [0단계] Query 라우팅 중...")
@@ -104,10 +151,8 @@ class AIChatService:
                     rag_response = await self._generate_rag_response(user_message, rag_context)
                     all_thinking.append(f"[RAG] 응답 생성 완료")
                     
-                    if session_id not in self.session_histories:
-                        self.session_histories[session_id] = []
-                    self.session_histories[session_id].append({"role": "user", "content": user_message})
-                    self.session_histories[session_id].append({"role": "assistant", "content": rag_response})
+                    self.session_histories.append(session_id, "user", user_message)
+                    self.session_histories.append(session_id, "assistant", rag_response)
                     # await self._save_message(session_id, "user", user_message)
                     # await self._save_message(session_id, "assistant", rag_response)
                     
@@ -163,10 +208,8 @@ class AIChatService:
                 conversation_response = await self._generate_conversational_response(user_message, history)
                 all_thinking.append(f"[대화] 일상 대화 처리 완료")
                 
-                if session_id not in self.session_histories:
-                    self.session_histories[session_id] = []
-                self.session_histories[session_id].append({"role": "user", "content": user_message})
-                self.session_histories[session_id].append({"role": "assistant", "content": conversation_response})
+                self.session_histories.append(session_id, "user", user_message)
+                self.session_histories.append(session_id, "assistant", conversation_response)
                 # await self._save_message(session_id, "user", user_message)
                 # await self._save_message(session_id, "assistant", conversation_response)
 
@@ -269,10 +312,8 @@ class AIChatService:
                 suggestions = {}
             
             # 대화 저장 (영속화 비활성화 - 메모리만 사용)
-            if session_id not in self.session_histories:
-                self.session_histories[session_id] = []
-            self.session_histories[session_id].append({"role": "user", "content": user_message})
-            self.session_histories[session_id].append({"role": "assistant", "content": result["response"]})
+            self.session_histories.append(session_id, "user", user_message)
+            self.session_histories.append(session_id, "assistant", result["response"])
             # await self._save_message(session_id, "user", user_message)
             # await self._save_message(session_id, "assistant", result["response"])
             
@@ -299,25 +340,28 @@ class AIChatService:
                 "related_analyses": suggestions.get("related_analyses", [])
             }
             
-        except Exception as e:
-            print(f"[ERROR] Chat 처리 중 에러: {type(e).__name__}: {e}")
-            traceback.print_exc()
-            error_msg = str(e)
-            all_thinking.append(f"[ERROR] {error_msg}")
+        except Exception:
+            # 내부 예외 메시지는 로그에만 남기고 사용자 응답에는 노출하지 않는다.
+            logger.exception("Chat pipeline failed (session_id=%s)", session_id)
+            all_thinking.append("[ERROR] 처리 중 오류가 발생했습니다.")
             
             return {
-                "response": f"오류가 발생했습니다: {error_msg}",
-                "error": error_msg,
+                "response": "죄송합니다. 답변을 만드는 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.",
+                "error": INTERNAL_ERROR_CODE,
                 "session_id": session_id,
                 "tools_used": [],
                 "thinking": "\n".join(all_thinking)
             }
     
-    def clear_history(self):
-        """대화 히스토리 초기화"""
-        self.conversation_history = []
+    def clear_history(self, session_id: Optional[str] = None):
+        """대화 히스토리 초기화 (session_id가 없으면 전체)"""
+        self.session_histories.clear(session_id)
     
-    async def _generate_conversational_response(self, user_message: str) -> str:
+    async def _generate_conversational_response(
+        self,
+        user_message: str,
+        history: Optional[List[Dict[str, Any]]] = None,
+    ) -> str:
         """데이터 조회 없이 일상 대화에 대한 응답 생성"""
         
         system_prompt = """당신은 YouTube 데이터 분석 전문가 AI입니다. 
@@ -331,7 +375,7 @@ class AIChatService:
             {"role": "system", "content": system_prompt},
         ]
         
-        messages.extend(self.conversation_history[-4:])
+        messages.extend((history or [])[-4:])
         messages.append({"role": "user", "content": user_message})
         
         try:

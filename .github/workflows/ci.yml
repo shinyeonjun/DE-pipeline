@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-tests:
+    name: Analytics API tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web/backend
+    env:
+      # 테스트용 더미 값. 실제 Supabase에는 연결하지 않는다.
+      SUPABASE_URL: http://localhost:54321
+      SUPABASE_SERVICE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiY2ktZHVtbXkifQ.ci-dummy-signature  # 형식만 맞춘 가짜 JWT
+      DEBUG: "false"
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: web/backend/requirements*.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run tests
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m pytest -q -rfE 2>&1 | tee pytest.log
+
+      - name: Report test result
+        if: always()
+        shell: bash
+        run: echo "::notice title=pytest::$(tail -n 1 pytest.log | sed 's/%/%25/g')"
+
+      - name: Surface test failures
+        if: failure()
+        shell: bash
+        run: |
+          failed=$(grep -E "^(FAILED|ERROR) |^E  " pytest.log | cut -c1-230 | tail -n 40 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+          echo "::error title=pytest failures::${failed}"

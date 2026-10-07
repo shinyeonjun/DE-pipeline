@@ -1,19 +1,19 @@
 """
-Step 추가 테스트 - step5_response_generation.py
+Step 5 테스트 - step5_response_generation.py
+
+LLM 호출이 실패했을 때 쓰는 폴백 요약(generate_data_summary)과 숫자 포맷팅을 검증한다.
 """
-import pytest
 from app.features.chat.steps.step5_response_generation import (
-    generate_data_based_response,
-    format_number
+    generate_data_summary,
+    format_number,
 )
 
 
-class TestGenerateDataBasedResponse:
-    """데이터 기반 폴백 응답 생성 테스트"""
-    
-    def test_trending_data_response(self):
-        """트렌딩 데이터가 있을 때 응답 생성"""
-        # Arrange
+class TestGenerateDataSummary:
+    """데이터 기반 폴백 요약 생성 테스트"""
+
+    def test_trending_data_summary(self):
+        """트렌딩 데이터가 있을 때 질문, 건수, 채널명, 순위가 포함된다"""
         all_data = {
             "ai_current_trending": {
                 "data": [
@@ -22,18 +22,18 @@ class TestGenerateDataBasedResponse:
                 ]
             }
         }
-        
-        # Act
-        result = generate_data_based_response(all_data, "인기 동영상 보여줘")
-        
-        # Assert
-        assert "현재 인기 있는 동영상" in result
-        assert "테스트 채널" in result
-        assert "1위" in result
 
-    def test_trending_data_sorting_correction(self):
-        """데이터가 역순(하위권부터)으로 들어왔을 때 1위부터 정렬되는지 확인"""
-        # Arrange
+        result = generate_data_summary(all_data, "인기 동영상 보여줘")
+
+        assert "인기 동영상 보여줘" in result
+        assert "ai_current_trending" in result
+        assert "2개 데이터" in result
+        assert "테스트 채널" in result
+        assert "| 1 |" in result
+        assert "1.0M" in result
+
+    def test_trending_data_sorted_by_rank(self):
+        """데이터가 역순(하위권부터)으로 들어와도 1위부터 정렬된다"""
         all_data = {
             "ai_current_trending": {
                 "data": [
@@ -43,30 +43,35 @@ class TestGenerateDataBasedResponse:
                 ]
             }
         }
-        
-        # Act
-        result = generate_data_based_response(all_data, "인기 동영상 알려줘")
-        
-        # Assert
-        # 1위 영상이 먼저 나타나야 함
-        assert "1위 영상" in result
-        # 1위 영상의 위치가 200위 영상보다 앞에 있어야 함
-        assert result.find("1위 영상") < result.find("200위 영상")
-    
-    def test_empty_data_response(self):
-        """데이터가 없을 때 기본 응답"""
-        # Arrange
+
+        result = generate_data_summary(all_data, "인기 동영상 알려줘")
+
+        assert result.find("1위 영상") < result.find("199위 영상") < result.find("200위 영상")
+
+    def test_empty_data_has_no_table(self):
+        """데이터가 없으면 질문 안내 문장만 남고 표는 만들지 않는다"""
         all_data = {"ai_current_trending": {"data": []}}
-        
-        # Act
-        result = generate_data_based_response(all_data, "테스트")
-        
-        # Assert
-        assert "차트에서" in result or "분석 중" in result
-    
-    def test_category_stats_response(self):
-        """카테고리 통계 데이터 응답"""
-        # Arrange
+
+        result = generate_data_summary(all_data, "테스트")
+
+        assert "테스트" in result
+        assert "|" not in result
+
+    def test_filters_are_shown(self):
+        """적용된 필터가 요약에 표시된다"""
+        all_data = {
+            "ai_category_stats": {
+                "data": [{"카테고리": "Music", "영상수": 50}],
+                "filters_applied": [{"field": "카테고리", "value": "Music"}],
+            }
+        }
+
+        result = generate_data_summary(all_data, "음악 카테고리")
+
+        assert "필터: 카테고리=Music" in result
+
+    def test_category_stats_summary(self):
+        """카테고리 통계는 카테고리별 영상 수 목록으로 표시된다"""
         all_data = {
             "ai_category_stats": {
                 "data": [
@@ -75,27 +80,30 @@ class TestGenerateDataBasedResponse:
                 ]
             }
         }
-        
-        # Act
-        result = generate_data_based_response(all_data, "카테고리 분석")
-        
-        # Assert
-        assert "카테고리별 분석" in result
-        assert "Music" in result
+
+        result = generate_data_summary(all_data, "카테고리 분석")
+
+        assert "- Music: 50개 동영상" in result
+        assert "- Gaming: 30개 동영상" in result
 
 
 class TestFormatNumber:
     """숫자 포맷팅 테스트"""
-    
+
     def test_millions(self):
-        """백만 단위 포맷팅"""
-        assert "M" in format_number(1500000) or "백만" in format_number(1500000) or "1.5" in format_number(1500000)
-    
+        assert format_number(1500000) == "1.5M"
+
     def test_thousands(self):
-        """천 단위 포맷팅"""
-        result = format_number(50000)
-        assert "K" in result or "5만" in result or "50" in result
-    
+        assert format_number(50000) == "50.0K"
+
+    def test_small_numbers_use_comma(self):
+        assert format_number(999) == "999"
+
     def test_zero(self):
-        """0 처리"""
-        assert format_number(0) is not None
+        assert format_number(0) == "0"
+
+    def test_none(self):
+        assert format_number(None) == "-"
+
+    def test_non_numeric_is_passed_through(self):
+        assert format_number("N/A") == "N/A"

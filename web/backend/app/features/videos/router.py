@@ -2,6 +2,7 @@
 Videos Router - 비디오 API 엔드포인트
 """
 from fastapi import APIRouter, HTTPException
+from app.core.errors import internal_error
 from .service import VideoService
 from .schemas import VideoHistory
 
@@ -22,5 +23,5 @@ async def get_video_history(video_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error("videos.get_video_history") from e
 
