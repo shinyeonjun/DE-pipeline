@@ -60,7 +60,7 @@ FastAPI 분석 API
 - **스키마 관리**: 팩트 테이블과 분석용 `ai_*` 뷰의 DDL이 저장소에 없습니다(현재 SQL 파일은 `web/backend/scripts/setup_pgvector.sql`뿐). → 마이그레이션 또는 dbt 모델로 옮기고 unique / not_null / freshness 테스트를 붙일 예정입니다.
 - **데이터 품질 검사**가 없습니다.
 - **분석 API**: Supabase 서비스 키를 그대로 사용하고, 기본 설정이 `debug=True`이며, 챗봇 엔드포인트에 인증과 rate limit이 없습니다. (내부 오류 메시지는 로그에만 남기고 응답에는 일반 메시지와 `INTERNAL_ERROR` 코드만 반환하도록 수정했습니다.)
-- **테스트 범위**: CI에서 분석 API·챗봇 테스트 26개가 통과합니다(`web/backend`에서 `pip install -r requirements-dev.txt` 후 `pytest`). 수집기와 정제 로직에는 아직 테스트가 없습니다.
+- **테스트 범위**: CI에서 분석 API·챗봇 테스트 28개가 통과합니다(`web/backend`에서 `pip install -r requirements-dev.txt` 후 `pytest`). 수집기와 정제 로직에는 아직 테스트가 없습니다.
 
 ## Repository map
 
