@@ -1,5 +1,6 @@
 # DE-pipeline
 
+[![CI](https://github.com/shinyeonjun/DE-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/shinyeonjun/DE-pipeline/actions/workflows/ci.yml)
 [![Data](https://img.shields.io/badge/data-YouTube%20API-red)](#)
 [![Backend](https://img.shields.io/badge/backend-FastAPI-009688)](#)
 [![Frontend](https://img.shields.io/badge/frontend-Next.js-111827)](#)
@@ -58,8 +59,8 @@ FastAPI 분석 API
 - **멱등성**: `processed_files`로 처리한 파일을 건너뛰지만, 확인과 기록이 원자적이지 않고 팩트 테이블은 insert 전용(`transform/app/transformers/videos.py`, `comments.py`)이라 같은 파일을 다시 처리하면 중복 행이 생깁니다. → `(video_id, snapshot_at)` 같은 자연키로 upsert하고, 재처리·backfill 명령을 정리할 예정입니다.
 - **스키마 관리**: 팩트 테이블과 분석용 `ai_*` 뷰의 DDL이 저장소에 없습니다(현재 SQL 파일은 `web/backend/scripts/setup_pgvector.sql`뿐). → 마이그레이션 또는 dbt 모델로 옮기고 unique / not_null / freshness 테스트를 붙일 예정입니다.
 - **데이터 품질 검사**가 없습니다.
-- **분석 API**: Supabase 서비스 키를 그대로 사용하고, 오류 응답에 예외 메시지를 노출하며(`detail=str(e)`), 기본 설정이 `debug=True`입니다. 챗봇 엔드포인트에 인증과 rate limit이 없습니다.
-- **테스트**: 테스트는 챗봇 쪽(`web/backend/tests`)에만 있고, 현재 코드와 맞지 않아 통과하는 테스트가 없습니다. `test_step5.py`는 이름이 바뀐 함수를, `test_chat_service.py`는 구현되지 않은 `LRUSessionHistory`를 import합니다. `test_chat_router.py`의 보안 테스트 3개는 챗봇이 내부 오류 메시지를 응답에 그대로 노출해서 실패합니다. 수집기와 정제 로직에는 테스트가 없습니다. → 오류 메시지 노출을 먼저 고치고, 테스트를 현재 코드에 맞춘 뒤 CI를 붙일 예정입니다. (`pip install -r web/backend/requirements-dev.txt` 후 `web/backend`에서 `pytest`로 실행)
+- **분석 API**: Supabase 서비스 키를 그대로 사용하고, 기본 설정이 `debug=True`이며, 챗봇 엔드포인트에 인증과 rate limit이 없습니다. (내부 오류 메시지는 로그에만 남기고 응답에는 일반 메시지와 `INTERNAL_ERROR` 코드만 반환하도록 수정했습니다.)
+- **테스트 범위**: CI에서 분석 API·챗봇 테스트 26개가 통과합니다(`web/backend`에서 `pip install -r requirements-dev.txt` 후 `pytest`). 수집기와 정제 로직에는 아직 테스트가 없습니다.
 
 ## Repository map
 
