@@ -151,10 +151,8 @@ class AIChatService:
                     rag_response = await self._generate_rag_response(user_message, rag_context)
                     all_thinking.append(f"[RAG] 응답 생성 완료")
                     
-                    if session_id not in self.session_histories:
-                        self.session_histories[session_id] = []
-                    self.session_histories[session_id].append({"role": "user", "content": user_message})
-                    self.session_histories[session_id].append({"role": "assistant", "content": rag_response})
+                    self.session_histories.append(session_id, "user", user_message)
+                    self.session_histories.append(session_id, "assistant", rag_response)
                     # await self._save_message(session_id, "user", user_message)
                     # await self._save_message(session_id, "assistant", rag_response)
                     

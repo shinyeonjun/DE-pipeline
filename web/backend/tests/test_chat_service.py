@@ -174,3 +174,58 @@ class TestChatServiceErrorHandling:
 
         assert service.session_histories.get("s1") == []
         assert len(service.session_histories.get("s2")) == 1
+
+    @pytest.mark.asyncio
+    async def test_knowledge_route_saves_history(self):
+        """RAG(지식 검색) 경로의 응답도 세션 기록에 저장된다"""
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from app.features.chat.service import AIChatService
+
+        service = AIChatService(ollama_host="http://localhost:11434", model="test-model")
+        with patch(
+            "app.features.chat.service.route_query",
+            AsyncMock(return_value={"route": "knowledge"}),
+        ), patch(
+            "app.features.chat.service.retrieve_knowledge",
+            AsyncMock(return_value={"documents": [{"content": "doc"}]}),
+        ), patch(
+            "app.features.chat.service.format_rag_context",
+            MagicMock(return_value="context"),
+        ), patch.object(
+            service, "_generate_rag_response", AsyncMock(return_value="RAG 답변"),
+        ):
+            result = await service.chat("알고리즘이 뭐야?", session_id="s1")
+
+        assert result["response"] == "RAG 답변"
+        assert "error" not in result
+        assert service.session_histories.get("s1") == [
+            {"role": "user", "content": "알고리즘이 뭐야?"},
+            {"role": "assistant", "content": "RAG 답변"},
+        ]
+
+    @pytest.mark.asyncio
+    async def test_conversation_route_uses_history(self):
+        """일상 대화 경로가 이전 대화 기록을 받아 응답을 만든다"""
+        from unittest.mock import AsyncMock, patch
+        from app.features.chat.service import AIChatService
+
+        service = AIChatService(ollama_host="http://localhost:11434", model="test-model")
+        service.session_histories.append("s1", "user", "이전 질문")
+        service.session_histories.append("s1", "assistant", "이전 답변")
+        generate = AsyncMock(return_value="안녕하세요!")
+        with patch(
+            "app.features.chat.service.route_query",
+            AsyncMock(return_value={"route": "data"}),
+        ), patch(
+            "app.core.base_service.BaseService.get_ai_view_schema",
+            AsyncMock(return_value={}),
+        ), patch(
+            "app.features.chat.service.analyze_question",
+            AsyncMock(return_value={"intent": "conversation"}),
+        ), patch.object(service, "_generate_conversational_response", generate):
+            result = await service.chat("안녕", session_id="s1")
+
+        assert result["response"] == "안녕하세요!"
+        generate.assert_awaited_once()
+        assert generate.await_args.args[1][-1] == {"role": "assistant", "content": "이전 답변"}
+        assert len(service.session_histories.get("s1")) == 4
