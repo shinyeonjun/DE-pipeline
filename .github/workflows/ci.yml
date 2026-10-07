@@ -20,6 +20,11 @@ jobs:
     defaults:
       run:
         working-directory: web/backend
+    env:
+      # 테스트용 더미 값. 실제 Supabase에는 연결하지 않는다.
+      SUPABASE_URL: http://localhost:54321
+      SUPABASE_SERVICE_KEY: ci-dummy-key
+      DEBUG: "false"
 
     steps:
       - uses: actions/checkout@v5
