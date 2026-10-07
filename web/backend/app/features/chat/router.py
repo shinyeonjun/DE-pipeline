@@ -1,13 +1,18 @@
 """
 Chat Router - AI 챗봇 API 엔드포인트
 """
+import logging
+
 import httpx
 from fastapi import APIRouter
-from typing import List
+from typing import List, Optional
 from app.core import settings
+from app.core.errors import INTERNAL_ERROR_CODE
 from .service import get_chat_service
 from .schemas import ChatRequest, ChatResponse, ViewInfo
 from .prompts import SUGGESTED_QUESTIONS
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/chat", tags=["AI Chat"])
 
@@ -29,28 +34,26 @@ async def chat(request: ChatRequest):
         service = get_chat_service()
         result = await service.chat(request.message, request.session_id)
         return ChatResponse(**result)
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        # 에러 메시지에서 인코딩 문제가 있는 문자 제거
-        error_msg = str(e).encode('ascii', 'ignore').decode('ascii')
+    except Exception:
+        # 내부 예외 메시지(DB 주소, 쿼리 등)는 로그에만 남기고 사용자에게는 노출하지 않는다.
+        logger.exception("Chat request failed (session_id=%s)", request.session_id)
         return ChatResponse(
-            response=f"서버 오류가 발생했습니다: {error_msg}",
+            response="죄송합니다. 답변을 만드는 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.",
             tools_used=[],
             session_id=request.session_id,
-            error=error_msg
+            error=INTERNAL_ERROR_CODE
         )
 
 
 @router.post("/clear")
-async def clear_history():
+async def clear_history(session_id: Optional[str] = None):
     """
     대화 히스토리 초기화
 
-    새로운 대화를 시작합니다.
+    새로운 대화를 시작합니다. session_id를 주면 해당 세션만, 없으면 전체 기록을 지웁니다.
     """
     service = get_chat_service()
-    service.clear_history()
+    service.clear_history(session_id)
     return {"message": "대화 히스토리가 초기화되었습니다."}
 
 
@@ -62,8 +65,7 @@ async def get_available_views():
     AI가 조회할 수 있는 데이터 View 목록을 반환합니다.
     """
     service = get_chat_service()
-    views = await service.get_available_views()
-    return views
+    return service.get_available_views()
 
 
 @router.get("/health")
@@ -97,11 +99,12 @@ async def chat_health():
             "ollama_connected": False,
             "error": "Cannot connect to Ollama server"
         }
-    except Exception as e:
+    except Exception:
+        logger.exception("Ollama health check failed")
         return {
             "status": "unhealthy",
             "ollama_connected": False,
-            "error": str(e)
+            "error": INTERNAL_ERROR_CODE
         }
 
 

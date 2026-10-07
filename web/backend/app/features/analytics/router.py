@@ -2,6 +2,7 @@
 Analytics Router - 분석 API 엔드포인트
 """
 from fastapi import APIRouter, HTTPException
+from app.core.errors import internal_error
 from typing import Dict, List
 from .service import AnalyticsService
 
@@ -16,7 +17,7 @@ async def get_overview_stats() -> Dict:
         return stats
     
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error("analytics.get_overview_stats") from e
 
 
 @router.get("/top-channels")
@@ -27,7 +28,7 @@ async def get_top_channels(limit: int = 6) -> List[Dict]:
         return channels
     
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error("analytics.get_top_channels") from e
 
 
 @router.get("/hourly-trends")
@@ -38,5 +39,5 @@ async def get_hourly_trends(hours: int = 24) -> List[Dict]:
         return trends
     
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise internal_error("analytics.get_hourly_trends") from e
 

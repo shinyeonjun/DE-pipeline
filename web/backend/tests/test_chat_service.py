@@ -141,3 +141,36 @@ class TestChatServiceIntegration:
         assert hasattr(service, 'session_histories')
         assert isinstance(service.session_histories, LRUSessionHistory), \
             "session_histories가 LRUSessionHistory 인스턴스가 아닙니다"
+
+
+class TestChatServiceErrorHandling:
+    """Chat 서비스 오류 처리 테스트"""
+
+    @pytest.mark.asyncio
+    async def test_pipeline_error_is_not_exposed(self):
+        """파이프라인 내부 오류 메시지가 응답에 노출되지 않아야 함"""
+        from unittest.mock import AsyncMock, patch
+        from app.features.chat.service import AIChatService
+
+        service = AIChatService(ollama_host="http://localhost:11434", model="test-model")
+        with patch(
+            "app.features.chat.service.route_query",
+            AsyncMock(side_effect=RuntimeError("db at 10.0.0.5 refused")),
+        ):
+            result = await service.chat("안녕", session_id="s1")
+
+        assert "10.0.0.5" not in result["response"]
+        assert result["error"] == "INTERNAL_ERROR"
+
+    def test_clear_history_only_clears_given_session(self):
+        """session_id를 주면 해당 세션 기록만 지운다"""
+        from app.features.chat.service import AIChatService
+
+        service = AIChatService(ollama_host="http://localhost:11434", model="test-model")
+        service.session_histories.append("s1", "user", "a")
+        service.session_histories.append("s2", "user", "b")
+
+        service.clear_history("s1")
+
+        assert service.session_histories.get("s1") == []
+        assert len(service.session_histories.get("s2")) == 1

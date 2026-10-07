@@ -1,10 +1,13 @@
 """
 YouTube Analytics API - Main Application
 """
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core import settings, supabase
+from app.core.errors import INTERNAL_ERROR_CODE
 from app.features.trending import router as trending_router
 from app.features.analytics import router as analytics_router
 from app.features.categories import router as categories_router
@@ -12,6 +15,8 @@ from app.features.videos import router as videos_router
 from app.features.chat import router as chat_router
 
 # FastAPI 앱 생성
+logger = logging.getLogger(__name__)
+
 app = FastAPI(
     title="YouTube Analytics API",
     description="YouTube 트렌딩 데이터 분석 API",
@@ -69,11 +74,12 @@ async def health_check():
             "database": "connected",
             "data_count": data_count
         }
-    except Exception as e:
+    except Exception:
+        logger.exception("Database health check failed")
         return {
             "status": "unhealthy",
             "database": "disconnected",
-            "error": str(e)
+            "error": INTERNAL_ERROR_CODE
         }
 
 

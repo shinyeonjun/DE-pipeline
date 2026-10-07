@@ -89,3 +89,33 @@ class TestChatRouterSecurity:
         assert "RuntimeError" not in response.response
         assert "Critical failure" not in response.response
 
+
+
+class TestChatRouterEndpoints:
+    """Chat Router 엔드포인트 동작 테스트"""
+
+    @pytest.mark.asyncio
+    async def test_views_endpoint_returns_service_views(self):
+        """get_available_views는 동기 메서드이므로 await 없이 결과를 그대로 반환해야 함"""
+        from app.features.chat.router import get_available_views
+
+        views = [{"name": "ai_current_trending", "description": "현재 트렌딩", "columns": ["순위"]}]
+        with patch('app.features.chat.router.get_chat_service') as mock_service:
+            mock_service.return_value = MagicMock(get_available_views=MagicMock(return_value=views))
+
+            result = await get_available_views()
+
+        assert result == views
+
+    @pytest.mark.asyncio
+    async def test_clear_history_passes_session_id(self):
+        """session_id를 주면 해당 세션만 초기화를 요청해야 함"""
+        from app.features.chat.router import clear_history
+
+        with patch('app.features.chat.router.get_chat_service') as mock_service:
+            mock_instance = MagicMock()
+            mock_service.return_value = mock_instance
+
+            await clear_history(session_id="s1")
+
+        mock_instance.clear_history.assert_called_once_with("s1")
